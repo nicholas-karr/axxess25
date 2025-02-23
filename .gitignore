@@ -7,3 +7,4 @@ components/arduino
 components/GxEPD2
 .vscode/settings.json
 /env.h
+scratch

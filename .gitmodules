@@ -1,3 +1,12 @@
 [submodule "components/lvgl"]
 	path = components/lvgl
 	url = https://github.com/lvgl/lvgl.git
+[submodule "components/mpu6050"]
+	path = components/mpu6050
+	url = https://github.com/ElectronicCats/mpu6050.git
+[submodule "components/Adafruit_MPU6050"]
+	path = components/Adafruit_MPU6050
+	url = https://github.com/adafruit/Adafruit_MPU6050.git
+[submodule "components/Adafruit_Sensor"]
+	path = components/Adafruit_Sensor
+	url = https://github.com/adafruit/Adafruit_Sensor.git

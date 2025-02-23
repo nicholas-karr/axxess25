@@ -3,11 +3,14 @@
         {
             "name": "ESP-IDF",
             "compilerPath": "${config:idf.toolsPath}/tools/xtensa-esp-elf/esp-14.2.0_20241119/xtensa-esp-elf/bin/xtensa-esp32-elf-gcc",
-            "compileCommands": "${config:idf.buildPath}/compile_commands.json",
+            "compileCommands": [
+                "${config:idf.buildPath}/compile_commands.json"
+            ],
             "includePath": [
                 "${config:idf.espIdfPath}/components/**",
                 "${config:idf.espIdfPathWin}/components/**",
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/home/nickk/esp/v5.4/esp-idf/components/esp-tls"
             ],
             "browse": {
                 "path": [
