@@ -12,6 +12,8 @@
 
 #include <Adafruit_MPU6050.h>
 
+#include <uICAL.h>
+
 #define LV_TICK_PERIOD_MS 10
 static void lv_tick_task(void *arg)
 {
@@ -307,4 +309,25 @@ void loadConfig()
   motionUpdatePeriod = doc["motionUpdatePeriod"].as<int>();
   inactivityPeriod = doc["inactivityPeriod"].as<int>();
   lineSpacing = doc["lineSpacing"].as<int>();
+
+  loadCalendar();
+}
+
+void loadCalendar() {
+  char* ical = getFileFromPath("calendar.google.com", "/calendar/ical/c65422ad0b0f26bff3b482d73bc719b970fc025391957eb1e107d56a3d41a2f5%40group.calendar.google.com/private-3c9d279395cdb5cce1bd2dea7a12b900/basic.ics");
+
+  uICAL::istream_String istm(ical);
+  //uICAL::istream_stl istm(fstm);
+  auto cal = uICAL::Calendar::load(istm);
+  
+  uICAL::DateTime begin(time(NULL));
+  uICAL::DateTime end(time(NULL) + 259200);
+  
+  auto calIt = uICAL::new_ptr<uICAL::CalendarIter>(cal, begin, end);
+  
+  while(calIt->next()) {
+      //std::cout << calIt->current() << std:endl;
+      auto s = calIt->current().get()->as_str();
+      printf("Cal Entry %s\n", s.c_str());
+  }
 }

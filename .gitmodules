@@ -10,3 +10,6 @@
 [submodule "components/Adafruit_Sensor"]
 	path = components/Adafruit_Sensor
 	url = https://github.com/adafruit/Adafruit_Sensor.git
+[submodule "components/uICAL"]
+	path = components/uICAL
+	url = https://github.com/sourcesimian/uICAL.git

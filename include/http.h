@@ -13,6 +13,7 @@
 
 void op(int shift, const char* text);
 void loadConfig();
+void loadCalendar();
 
 esp_err_t getHandler(httpd_req_t *req)
 {
@@ -130,7 +131,7 @@ void stop_webserver(httpd_handle_t server)
     }
 }
 
-#define HTTP_RESP_SIZE 4096
+#define HTTP_RESP_SIZE 30000
 char httpResp[HTTP_RESP_SIZE];
 
 esp_err_t httpEventHandler(esp_http_client_event_t* evt)
@@ -233,6 +234,31 @@ esp_err_t getJsonFromPath(const char* host, const char* path, JsonDocument& doc)
 
     esp_http_client_cleanup(client);
     return ESP_OK;
+}
+
+char* getFileFromPath(const char* host, const char* path) {
+    esp_http_client_config_t httpConfig = {};
+    httpConfig.host = host;
+    httpConfig.path = path;
+    httpConfig.transport_type = HTTP_TRANSPORT_OVER_SSL;
+    httpConfig.event_handler = httpEventHandler;
+    httpConfig.crt_bundle_attach = esp_crt_bundle_attach;
+
+    esp_http_client_handle_t client = esp_http_client_init(&httpConfig);
+
+    memset(httpResp, 0, sizeof(httpResp));
+    esp_err_t err = esp_http_client_perform(client);
+
+    if (err == ESP_OK) {
+        ESP_LOGI(TAG, "Successful HTTP request to %s, status %d, length %d", host, esp_http_client_get_status_code(client), (int)esp_http_client_get_content_length(client));
+    } else {
+        ESP_LOGE(TAG, "Failed HTTP request to %s", host);
+        esp_http_client_cleanup(client);
+        return nullptr;
+    }
+
+    esp_http_client_cleanup(client);
+    return httpResp;
 }
 
 #undef TAG
