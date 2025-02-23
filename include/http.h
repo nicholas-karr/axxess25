@@ -2,6 +2,8 @@
 
 #include <esp_http_server.h>
 
+#include <ArduinoJson.h>
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define ABS(a) fabsf(a)
@@ -17,6 +19,8 @@ esp_err_t get_handler(httpd_req_t *req)
 
     return ESP_OK;
 }
+
+void op(int shift);
 
 /* Our URI handler function to be called during POST /uri request */
 esp_err_t post_handler(httpd_req_t *req)
@@ -45,6 +49,21 @@ esp_err_t post_handler(httpd_req_t *req)
         return ESP_FAIL;
     }
 
+    printf("Got POST %s\n", content);
+
+    JsonDocument json;
+
+    // Read JSON packet
+    DeserializationError error = deserializeJson(json, content);
+
+    if (error) {
+        ESP_LOGE("", "deserializeJson() failed: %s", error.c_str());
+        return ESP_OK;
+    }
+
+    auto shift = json["shift"].as<int32_t>();
+    op(shift);
+
     /* Send a simple response */
     const char resp[] = "URI POST Response";
     httpd_resp_send(req, resp, HTTPD_RESP_USE_STRLEN);
@@ -53,7 +72,7 @@ esp_err_t post_handler(httpd_req_t *req)
 
 /* URI handler structure for GET /uri */
 httpd_uri_t uri_get = {
-    .uri      = "/uri",
+    .uri      = "/api",
     .method   = HTTP_GET,
     .handler  = get_handler,
     .user_ctx = NULL
@@ -61,7 +80,7 @@ httpd_uri_t uri_get = {
 
 /* URI handler structure for POST /uri */
 httpd_uri_t uri_post = {
-    .uri      = "/uri",
+    .uri      = "/api",
     .method   = HTTP_POST,
     .handler  = post_handler,
     .user_ctx = NULL

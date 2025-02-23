@@ -53,6 +53,8 @@ inline void checkImpl(esp_err_t val, const char* file, int line)
 
 #define CHECK(val) (checkImpl(val, __FILE__, __LINE__))
 
+int pixelShift = 1;
+
 /* Required by LVGL */
 void flush_cb(lv_display_t *drv, const lv_area_t *area, uint8_t* px_map)
 {
@@ -66,10 +68,11 @@ void flush_cb(lv_display_t *drv, const lv_area_t *area, uint8_t* px_map)
   {
     for (x = area->x1; x <= area->x2; x++)
     {
-      uint16_t color = (buf[i/8] |= (1u<<(i % 8))) ? GxEPD_BLACK : GxEPD_WHITE;
+      //uint16_t color = 0;// (buf[i/8] |= (1u<<(i % 8))) ? GxEPD_BLACK : GxEPD_WHITE;
       //uint16_t color = (*buf & (1 << 7)) > 0 ? GxEPD_BLACK : GxEPD_WHITE;
-      //uint16_t color = *buf == 255 ? GxEPD_WHITE : GxEPD_BLACK;
+      uint16_t color = (*buf > pixelShift) ? GxEPD_WHITE : GxEPD_BLACK;
       //uint16_t color = (rand() % 2) ? GxEPD_WHITE : GxEPD_BLACK;
+
       display.drawPixel((int16_t)x, (int16_t)y, color);
       //buf++;
 
@@ -79,8 +82,9 @@ void flush_cb(lv_display_t *drv, const lv_area_t *area, uint8_t* px_map)
         //printf("Draw pixel %d\n", (int)*buf);
         //vTaskDelay(50);
       }
+      buf++;
 
-      i++;
+      i += 1;
     }
   }
 
@@ -147,6 +151,10 @@ inline void trace_impl(const char* file, int line) {
 
 #define TRACE (trace_impl(__FILE__, __LINE__));
 
+lv_display_t* disp = nullptr;
+lv_obj_t *label = nullptr;
+QueueHandle_t xGuiSemaphore = nullptr;
+
 extern "C" void app_main()
 {
   rtc_wdt_protect_off();    // Turns off the automatic wdt service
@@ -173,7 +181,7 @@ extern "C" void app_main()
 
   vTaskDelay(3000);
 
-  auto xGuiSemaphore = xSemaphoreCreateMutex();
+  xGuiSemaphore = xSemaphoreCreateMutex();
 
   SPI.begin(/*SCK*/ 39, /*MISO*/ -1, /*MOSI*/ 37, /*SS*/ -1);
   auto set = SPISettings(2000000, MSBFIRST, SPI_MODE0);
@@ -197,7 +205,7 @@ extern "C" void app_main()
    * NOTE: buf2 == NULL when using monochrome displays. */
   //lv_disp_buf_init(&disp_buf, buf1, buf2, size_in_px);
 
-  lv_display_t* disp = lv_display_create(296, 128);
+  disp = lv_display_create(296, 128);
 
   TRACE
 
@@ -241,13 +249,13 @@ extern "C" void app_main()
   /* Create the demo application */
   //demo_create();
 
-  lv_obj_t *label = lv_label_create( lv_screen_active() );
+  label = lv_label_create( lv_screen_active() );
   lv_label_set_text( label, "Hello Arduino, I'm LVGL!" );
   lv_obj_align( label, LV_ALIGN_CENTER, 0, 0 );
 
   TRACE
 
-  while (1)
+  while (true)
   {
     /* Delay 1 tick (assumes FreeRTOS tick is 10ms */
     //todo: not right
@@ -260,13 +268,15 @@ extern "C" void app_main()
       xSemaphoreGive(xGuiSemaphore);
     }
   }
+}
 
-  while (true)
-  {
-    printf("loop\n");
-    delay(1000);
-  }
+void op(int shift) {
+  xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
 
-  while (true)
-    ;
+  pixelShift = shift;
+  lv_obj_align( label, LV_ALIGN_CENTER, shift, 0 );
+
+  printf("Updated shift to %d\n", shift);
+
+  xSemaphoreGive(xGuiSemaphore);
 }

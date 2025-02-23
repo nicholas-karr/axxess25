@@ -1,4 +1,11 @@
 dependencies:
+  bblanchon/arduinojson:
+    component_hash: 21b41e6cce335cefc142c457ceb50eb45621ff9ea6fd0a0ee349a642e48a47a3
+    dependencies: []
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 7.3.0
   chmorgan/esp-libhelix-mp3:
     component_hash: cbb76089dc2c5749f7b470e2e70aedc44c9da519e04eb9a67d4c7ec275229e53
     dependencies:
@@ -299,6 +306,7 @@ dependencies:
       type: service
     version: 1.16.4
 direct_dependencies:
+- bblanchon/arduinojson
 - chmorgan/esp-libhelix-mp3
 - espressif/cbor
 - espressif/esp-dsp
@@ -317,6 +325,6 @@ direct_dependencies:
 - espressif/rmaker_common
 - idf
 - joltwallet/littlefs
-manifest_hash: 99789f6afe576b05a79c202c6e2b5bb8764de90c4ede26bfa55f0b96e2a33596
+manifest_hash: 3170941f8b0b7d9975d2cdfc5b75f410bcdcfe80db2acd0883cdb13b6f00f415
 target: esp32s2
 version: 2.0.0
