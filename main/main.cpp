@@ -12,8 +12,6 @@
 
 #include <Adafruit_MPU6050.h>
 
-#include <uICAL.h>
-
 #define LV_TICK_PERIOD_MS 10
 static void lv_tick_task(void *arg)
 {
@@ -24,7 +22,8 @@ static void lv_tick_task(void *arg)
 lv_display_t *drv = nullptr;
 QueueHandle_t xGuiSemaphore = nullptr;
 
-std::vector<std::string> cals;
+std::vector<std::string> events;
+int eventsCursor = 0;
 
 bool accelReverse = false;
 int accelDim = 0;
@@ -47,6 +46,32 @@ int getHorizAccel(sensors_vec_t accel)
 int getForwardAccel(sensors_vec_t accel)
 {
   return int(accel.x);
+}
+
+lv_obj_t* rows[7] = {};
+void drawEvents() {
+  static std::string buf;
+
+
+
+  for (int i = 0; i < 7; i++) {
+    if (i + eventsCursor >= events.size()) {
+      lv_label_set_text(rows[i], "");
+    }
+    else {
+      //lv_label_set_text(rows[i], events[eventsCursor + i].c_str());
+      //buf.append(events[eventsCursor + i]);
+    }
+
+    //buf.push_back('\n');
+  }
+
+  lv_label_set_text(rows[0], "11:30-12:45pm CE3320 Digital Circuits\n"
+"1-3:45pm CE3201 Fundamentals Lab\n"
+"5pm Assignment-3\n"
+"5:30-6:45pm CE2301 ENA\n"
+"8-9pm Council Meeting\n"
+"11:59pm Lab 4 (Oral Report)");
 }
 
 extern "C" void app_main()
@@ -126,20 +151,20 @@ extern "C" void app_main()
 
   // Eye management bar
   lv_obj_t *bar = lv_bar_create(tile0);
-  lv_obj_set_size(bar, 296 / 2, 20);
-  lv_obj_align(bar, LV_ALIGN_TOP_RIGHT, 0, 0);
+  lv_obj_set_size(bar, 296 / 2, 10);
+  lv_obj_align(bar, LV_ALIGN_TOP_RIGHT, 0, 3);
   lv_bar_set_range(bar, 0, 59);
   lv_bar_set_value(bar, 0, LV_ANIM_ON);
 
   // Calendar items
-  lv_obj_t* rows[7] = {};
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 1; i++) {
     rows[i] = lv_label_create(tile0);
     lv_obj_set_pos(rows[i], 0, 10 + i * 10);
     char buf[50] = {};
     snprintf(buf, sizeof(buf), "Long Long Long Long Test Item %d", i);
     lv_label_set_text(rows[i], buf);
   }
+  drawEvents();
 
   // Right 1: Image
   lv_obj_t *tile1 = lv_tileview_add_tile(tileView, 1, 0, LV_DIR_HOR);
@@ -238,12 +263,20 @@ extern "C" void app_main()
               printf("Tilt forward\n");
               currentCol = (currentCol == 0) ? 0 : currentCol - 1;
 
+              eventsCursor = (eventsCursor + 3 < events.size()) ? (eventsCursor + 3) : events.size() + 3;
+              //drawEvents();
+              lv_obj_set_y(rows[0], eventsCursor * 10);
+
               acted = 0;
             }
             else if (val - baseForwardAccel < -accelThreshold)
             {
               printf("Tilt backward\n");
               currentCol = (currentCol == 2) ? 2 : currentCol + 1;
+
+              eventsCursor = (eventsCursor >= 3) ? (eventsCursor - 3) : 0;
+              lv_obj_set_y(rows[0], eventsCursor * 10);
+              //drawEvents();
 
               acted = 0;
             }
@@ -299,9 +332,9 @@ void loadConfig()
   accelThreshold = doc["accelThreshold"].as<int>();
   baseHorizAccel = -999;
 
-  for (std::string item : doc["cals"].as<JsonArrayConst>())
+  for (std::string item : doc["events"].as<JsonArrayConst>())
   {
-    cals.push_back(item);
+    events.push_back(item);
   }
 
   buzzerScale = doc["buzzerScale"].as<int>();
@@ -310,24 +343,5 @@ void loadConfig()
   inactivityPeriod = doc["inactivityPeriod"].as<int>();
   lineSpacing = doc["lineSpacing"].as<int>();
 
-  loadCalendar();
-}
-
-void loadCalendar() {
-  char* ical = getFileFromPath("calendar.google.com", "/calendar/ical/c65422ad0b0f26bff3b482d73bc719b970fc025391957eb1e107d56a3d41a2f5%40group.calendar.google.com/private-3c9d279395cdb5cce1bd2dea7a12b900/basic.ics");
-
-  uICAL::istream_String istm(ical);
-  //uICAL::istream_stl istm(fstm);
-  auto cal = uICAL::Calendar::load(istm);
-  
-  uICAL::DateTime begin(time(NULL));
-  uICAL::DateTime end(time(NULL) + 259200);
-  
-  auto calIt = uICAL::new_ptr<uICAL::CalendarIter>(cal, begin, end);
-  
-  while(calIt->next()) {
-      //std::cout << calIt->current() << std:endl;
-      auto s = calIt->current().get()->as_str();
-      printf("Cal Entry %s\n", s.c_str());
-  }
+  //loadCalendar();
 }
