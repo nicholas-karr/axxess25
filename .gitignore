@@ -1,5 +1,9 @@
 build/
 sdkconfig.old
 managed_components/
-components/
+components/Adafruit_GFX_Library
+components/Adafruit_BusIO
+components/arduino
+components/GxEPD2
 .vscode/settings.json
+/env.h

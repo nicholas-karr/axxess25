@@ -118,20 +118,6 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.0.1
-  espressif/esp_lvgl_port:
-    component_hash: 378e8c7c11866041ac16a67387c6e44016aea63566613a1321b2f077ee523c53
-    dependencies:
-    - name: idf
-      require: private
-      version: '>=4.4'
-    - name: lvgl/lvgl
-      registry_url: https://components.espressif.com
-      require: public
-      version: '>=8,<10'
-    source:
-      registry_url: https://components.espressif.com/
-      type: service
-    version: 2.4.4
   espressif/esp_modem:
     component_hash: 681d7c8417ce0f2a11a562c6998b7b379a4847be41d84673c11c0c7a6b00e918
     dependencies:
@@ -312,13 +298,6 @@ dependencies:
       registry_url: https://components.espressif.com/
       type: service
     version: 1.16.4
-  lvgl/lvgl:
-    component_hash: 096c69af22eaf8a2b721e3913da91918c5e6bf1a762a113ec01f401aa61337a0
-    dependencies: []
-    source:
-      registry_url: https://components.espressif.com
-      type: service
-    version: 9.2.2
 direct_dependencies:
 - chmorgan/esp-libhelix-mp3
 - espressif/cbor
@@ -329,7 +308,6 @@ direct_dependencies:
 - espressif/esp_diag_data_store
 - espressif/esp_diagnostics
 - espressif/esp_insights
-- espressif/esp_lvgl_port
 - espressif/esp_modem
 - espressif/esp_rainmaker
 - espressif/libsodium
@@ -339,6 +317,6 @@ direct_dependencies:
 - espressif/rmaker_common
 - idf
 - joltwallet/littlefs
-manifest_hash: 7d4e777a90794d51a52b0710f3cbc51c671e7507e33f7a809abe3a8f66ca4cac
+manifest_hash: 99789f6afe576b05a79c202c6e2b5bb8764de90c4ede26bfa55f0b96e2a33596
 target: esp32s2
 version: 2.0.0
