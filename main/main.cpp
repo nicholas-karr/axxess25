@@ -151,6 +151,12 @@ extern "C" void app_main()
 {
   rtc_wdt_protect_off();    // Turns off the automatic wdt service
 
+  for (int i = 0; i < 5; i++) {
+
+    printf("Hello!\n");
+    vTaskDelay(1000);
+  }
+
   initArduino();
   
   WiFi.begin(SSID, PASSWORD);
