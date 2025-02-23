@@ -20,34 +20,31 @@ static void lv_tick_task(void *arg)
 }
 
 lv_display_t *drv = nullptr;
-lv_obj_t *label = nullptr;
 QueueHandle_t xGuiSemaphore = nullptr;
-
-#define BUZZER_PIN 5
 
 std::vector<std::string> cals;
 
 bool accelReverse = false;
 int accelDim = 0;
 int accelThreshold = 5;
-int baseAccel = -999;
+int baseHorizAccel = -999;
+int baseForwardAccel = -999;
+int acted = 0;
+int inactivityPeriod = 2;
 
 int buzzerScale = 1;
 
-int getAccel(sensors_vec_t accel) {
-  float val = 0;
+int motionUpdatePeriod = 500;
+int lineSpacing = 10;
 
-  if (accelDim == 0) {
-    val = accel.x;
-  }
-  else if (accelDim == 1) {
-    val = accel.y;
-  }
-  else {
-    val = accel.z;
-  }
+int getHorizAccel(sensors_vec_t accel)
+{
+  return -int(accel.z);
+}
 
-  return int(val) * (accelReverse ? -1 : 1);
+int getForwardAccel(sensors_vec_t accel)
+{
+  return int(accel.x);
 }
 
 extern "C" void app_main()
@@ -72,9 +69,6 @@ extern "C" void app_main()
   loadConfig();
 
   start_webserver();
-
-  pinMode(BUZZER_PIN, OUTPUT);
-  analogWrite(BUZZER_PIN, pixelShift);
 
   TwoWire wire(1);
   wire.begin(12, 11, 100000);
@@ -125,58 +119,139 @@ extern "C" void app_main()
 
   // Home tile
   lv_obj_t *tile0 = lv_tileview_add_tile(tileView, 0, 0, LV_DIR_HOR);
-  label = lv_label_create(tile0);
-  lv_label_set_text(label, "Hello Arduino, I'm LVGL!");
-  lv_obj_align(label, LV_ALIGN_TOP_LEFT, 0, 0);
+  lv_obj_t *clock = lv_label_create(tile0);
+  lv_obj_align(clock, LV_ALIGN_TOP_LEFT, 0, 0);
+
+  // Eye management bar
+  lv_obj_t *bar = lv_bar_create(tile0);
+  lv_obj_set_size(bar, 296 / 2, 20);
+  lv_obj_align(bar, LV_ALIGN_TOP_RIGHT, 0, 0);
+  lv_bar_set_range(bar, 0, 59);
+  lv_bar_set_value(bar, 0, LV_ANIM_ON);
+
+  // Calendar items
+  lv_obj_t* rows[7] = {};
+  for (int i = 0; i < 4; i++) {
+    rows[i] = lv_label_create(tile0);
+    lv_obj_set_pos(rows[i], 0, 10 + i * 10);
+    char buf[50] = {};
+    snprintf(buf, sizeof(buf), "Long Long Long Long Test Item %d", i);
+    lv_label_set_text(rows[i], buf);
+  }
 
   // Right 1: Image
   lv_obj_t *tile1 = lv_tileview_add_tile(tileView, 1, 0, LV_DIR_HOR);
-  lv_obj_t* image = lv_image_create(tile1);
+  lv_obj_t *image = lv_image_create(tile1);
   LV_IMAGE_DECLARE(img1);
   lv_image_set_src(image, &img1);
   lv_obj_align(image, LV_ALIGN_CENTER, 0, 0);
 
+  // Right 2: Image
+  lv_obj_t *tile2 = lv_tileview_add_tile(tileView, 2, 0, LV_DIR_HOR);
+  lv_obj_t *image2 = lv_image_create(tile2);
+  LV_IMAGE_DECLARE(img2);
+  lv_image_set_src(image2, &img2);
+  lv_obj_align(image2, LV_ALIGN_CENTER, 0, 0);
+
+  static unsigned long lastMotionUpdate = 0;
+
   while (true)
   {
-    vTaskDelay(1000);
+    vTaskDelay(100);
 
     /* Try to take the semaphore, call lvgl related function on success */
     if (pdTRUE == xSemaphoreTake(xGuiSemaphore, portMAX_DELAY))
     {
       char buf[30];
       time_t now = time(NULL);
-      strftime(buf, 20, "%Y-%m-%d %H:%M:%S", localtime(&now));
-      lv_label_set_text(label, buf);
+      // strftime(buf, 20, "%Y-%m-%d %H:%M:%S", localtime(&now));
+      strftime(buf, 20, "%H:%M %a, %b %d", localtime(&now));
+      lv_label_set_text(clock, buf);
 
-      sensors_event_t a, g, temp;
-      mpu.getEvent(&a, &g, &temp);
+      lv_bar_set_value(bar, now % 60, LV_ANIM_ON);
 
-      /* Print out the values */
-      printf("Acceleration %f %f %f\n", a.acceleration.x, a.acceleration.y, a.acceleration.z);
-      printf("Rotation %f %f %f\n", g.gyro.x, g.gyro.y, g.gyro.z);
-      printf("Temperature %f\n", temp.temperature);
-
-      int val = getAccel(a.acceleration);
-      if (baseAccel == -999) {
-        baseAccel = val;
-      }
-      else {
-        if (val - baseAccel > accelThreshold) {
-          // Turn left
-          printf("TURN LEFT\n");
-          currentCol -= 1;
-          lv_tileview_set_tile_by_index(tileView, currentCol, currentRow, LV_ANIM_ON);
-        }
-        else if (val - baseAccel < -accelThreshold) {
-          // Turn right
-          printf("TURN RIGHT\n");
-          currentCol += 1;
-          lv_tileview_set_tile_by_index(tileView, currentCol, currentRow, LV_ANIM_ON);
-        }
+      if (now % 60 == 0 && lv_tileview_get_tile_active(tileView) == tile0)
+      {
+        // Reminder flash
+        display.clearScreen();
+        display.display(false);
       }
 
-      snprintf(buf, sizeof(buf), "Acc %f", a.acceleration.x);
-      lv_label_set_text(label, buf);
+      // Only do motion analysis once a second and skip it after it happens
+      if (millis() - lastMotionUpdate >= motionUpdatePeriod)
+      {
+        lastMotionUpdate = millis();
+
+        if (acted < inactivityPeriod)
+        {
+          acted += 1;
+        }
+        else
+        {
+
+          sensors_event_t a, g, temp;
+          mpu.getEvent(&a, &g, &temp);
+
+          /* Print out the values */
+          printf("Acceleration %f %f %f\n", a.acceleration.x, a.acceleration.y, a.acceleration.z);
+          printf("Rotation %f %f %f\n", g.gyro.x, g.gyro.y, g.gyro.z);
+          printf("Temperature %f\n", temp.temperature);
+
+          int val = getHorizAccel(a.acceleration);
+          if (baseHorizAccel == -999)
+          {
+            baseHorizAccel = val;
+          }
+          else
+          {
+            if (val - baseHorizAccel > accelThreshold)
+            {
+              // Turn left
+              printf("TURN LEFT\n");
+              currentCol = (currentCol == 0) ? 0 : currentCol - 1;
+              lv_tileview_set_tile_by_index(tileView, currentCol, currentRow, LV_ANIM_ON);
+
+              acted = 0;
+            }
+            else if (val - baseHorizAccel < -accelThreshold)
+            {
+              // Turn right
+              printf("TURN RIGHT\n");
+              currentCol = (currentCol == 2) ? 2 : currentCol + 1;
+              lv_tileview_set_tile_by_index(tileView, currentCol, currentRow, LV_ANIM_ON);
+
+              acted = 0;
+            }
+          }
+
+          val = getForwardAccel(a.acceleration);
+          if (baseForwardAccel == -999)
+          {
+            baseForwardAccel = val;
+          }
+          else
+          {
+            if (val - baseForwardAccel > accelThreshold)
+            {
+              printf("Tilt forward\n");
+              currentCol = (currentCol == 0) ? 0 : currentCol - 1;
+
+              acted = 0;
+            }
+            else if (val - baseForwardAccel < -accelThreshold)
+            {
+              printf("Tilt backward\n");
+              currentCol = (currentCol == 2) ? 2 : currentCol + 1;
+
+              acted = 0;
+            }
+          }
+        }
+      }
+
+      for (int i = 0; i < 4; i++) {
+        lv_obj_set_pos(rows[i], 0, lineSpacing + i * lineSpacing);
+      }
 
       lv_task_handler();
       xSemaphoreGive(xGuiSemaphore);
@@ -189,9 +264,6 @@ void op(int shift, const char *text)
   xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
 
   pixelShift = shift;
-  analogWrite(BUZZER_PIN, pixelShift);
-  // lv_obj_align(label, LV_ALIGN_CENTER, shift, 0);
-  // lv_label_set_text(label, text);
 
   printf("Updated shift to %d\n", shift);
 
@@ -200,32 +272,39 @@ void op(int shift, const char *text)
 
 void loadConfig()
 {
-    static JsonDocument doc;
-    getJsonFromPath("karrmedia.com", "/iot/cal/config.json", doc);
+  static JsonDocument doc;
+  getJsonFromPath("karrmedia.com", "/iot/cal/config.json", doc);
 
-    setenv("TZ", doc["tz"].as<const char*>(), 1);
-    tzset();
+  setenv("TZ", doc["tz"].as<const char *>(), 1);
+  tzset();
 
-    if (doc["timeOverride"].isNull()) {
-      esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-      esp_netif_sntp_init(&config);
-    }
-    else {
-      struct timeval tv;
-      tv.tv_sec = doc["timeOverride"].as<time_t>();
-      tv.tv_usec = 0;
+  if (doc["timeOverride"].isNull())
+  {
+    esp_sntp_config_t config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+    esp_netif_sntp_init(&config);
+  }
+  else
+  {
+    struct timeval tv;
+    tv.tv_sec = doc["timeOverride"].as<time_t>();
+    tv.tv_usec = 0;
 
-      settimeofday(&tv,NULL);
-    }
+    settimeofday(&tv, NULL);
+  }
 
-    accelReverse = doc["accelDim"].as<const char*>()[0] == '-';
-    accelDim = doc["accelDim"].as<const char*>()[1] - '0';
-    accelThreshold = doc["accelThreshold"].as<int>();
-    baseAccel = -999;
+  accelReverse = doc["accelDim"].as<const char *>()[0] == '-';
+  accelDim = doc["accelDim"].as<const char *>()[1] - '0';
+  accelThreshold = doc["accelThreshold"].as<int>();
+  baseHorizAccel = -999;
 
-    for (std::string item : doc["cals"].as<JsonArrayConst>()) {
-      cals.push_back(item);
-    }
+  for (std::string item : doc["cals"].as<JsonArrayConst>())
+  {
+    cals.push_back(item);
+  }
 
-    buzzerScale = doc["buzzerScale"].as<int>();
+  buzzerScale = doc["buzzerScale"].as<int>();
+
+  motionUpdatePeriod = doc["motionUpdatePeriod"].as<int>();
+  inactivityPeriod = doc["inactivityPeriod"].as<int>();
+  lineSpacing = doc["lineSpacing"].as<int>();
 }
